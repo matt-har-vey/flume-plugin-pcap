@@ -13,5 +13,5 @@ Install ``libpcap`` on your system. Should your version be different from the on
 
 ### Config
 Set the following properties in your configuration (``flume-site.xml``):
-``flume.plugin.classes``: ``com.cloudera.flume.handlers.PcapSource``
-``flume.plugin.outputformat.classes``: ``com.cloudera.flume.handlers.PcapOutputFormat``
+	``flume.plugin.classes``: ``com.cloudera.flume.handlers.PcapSource``
+	``flume.plugin.outputformat.classes``: ``com.cloudera.flume.handlers.PcapOutputFormat``
