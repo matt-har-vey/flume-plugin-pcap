@@ -18,18 +18,15 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>com.cloudera.flume</groupId>
-			<artifactId>flume</artifactId>
-			<version>0.9.3-cdh3u1-SNAPSHOT</version>
-			<scope>provided</scope>
+			<groupId>org.apache.flume</groupId>
+			<artifactId>flume-ng-core</artifactId>
+			<version>1.5.0-SNAPSHOT</version>
 		</dependency>
 		<dependency>
-			<groupId>jpcap</groupId>
-			<artifactId>jpcap</artifactId>
-			<version>0.7</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/jpcap/0.7/jpcap.jar</systemPath>
-		</dependency>
+            <groupId>net.sourceforge.jpcap</groupId>
+            <artifactId>jpcap</artifactId>
+            <version>0.7.0</version>
+        </dependency>
 
 		<dependency>
 			<groupId>junit</groupId>
@@ -39,10 +36,4 @@
 		</dependency>
 	</dependencies>
 
-	<repositories>
-		<repository>
-			<id>cloudera</id>
-			<url>https://repository.cloudera.com/artifactory/cloudera-repos</url>
-		</repository>
-	</repositories>
 </project>

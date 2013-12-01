@@ -4,12 +4,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-import com.cloudera.flume.core.Event;
-import com.cloudera.flume.handlers.text.FormatFactory.OutputFormatBuilder;
-import com.cloudera.flume.handlers.text.output.OutputFormat;
-import com.google.common.base.Preconditions;
+import org.apache.flume.Event;
+import org.apache.flume.serialization.EventSerializer;
 
-public class PcapOutputFormat extends OutputFormatBuilder implements OutputFormat {
+class PcapOutputFormat implements EventSerializer {
 	private static final int MAGIC_NUMBER = 0xA1B2C3D4;
 	private static final short VERSION_MAJOR = 2;
 	private static final short VERSION_MINOR = 4;
@@ -28,27 +26,19 @@ public class PcapOutputFormat extends OutputFormatBuilder implements OutputForma
 	                                                putInt(DATA_LINK_TYPE).
 	                                                array();
 
-	private OutputFormatBuilder builder;
-
 	private boolean headerWritten = false;
+	private OutputStream out;
+
+	PcapOutputFormat(OutputStream out) {
+		this.out = out;
+	}
 
 	@Override
-	public void format(OutputStream out, Event event) throws IOException {
-		writeHeader(out);
-		writePacket(out, event);
-		out.flush();
-	}
-
-	private synchronized void writeHeader(OutputStream out) throws IOException {
-		if (!headerWritten) {
-			out.write(HEADER);
-			headerWritten = true;
-		}
-	}
-
-	private void writePacket(OutputStream out, Event event) throws IOException {
-		out.write(event.get("timestamp_sec"));
-		out.write(event.get("timestamp_usec"));
+	public void write(Event event) throws IOException {
+		final int sec = Integer.valueOf(event.getHeaders().get("timestamp_sec"));
+		final int usec = Integer.valueOf(event.getHeaders().get("timestamp_usec"));
+		out.write(sec);
+		out.write(usec);
 		byte[] body = event.getBody();
 		long bodyLength = body.length;
 		out.write(PcapUtils.convertInt((int)bodyLength));
@@ -57,25 +47,32 @@ public class PcapOutputFormat extends OutputFormatBuilder implements OutputForma
 	}
 
 	@Override
-	public void setBuilder(OutputFormatBuilder builder) {
-		this.builder = builder;
+	public void afterCreate() throws IOException {
+		writeHeader();
 	}
 
 	@Override
-	public OutputFormatBuilder getBuilder() {
-		return builder;
+	public void afterReopen() throws IOException {
 	}
 
 	@Override
-	public OutputFormat build(String... args) {
-		Preconditions.checkArgument(args.length == 0, "usage: pcap");
-		OutputFormat format = new PcapOutputFormat();
-		format.setBuilder(this);
-		return format;
+	public void beforeClose() throws IOException {
 	}
 
 	@Override
-	public String getName() {
-		return "pcap";
+	public void flush() throws IOException {
+		out.flush();
+	}
+
+	@Override
+	public boolean supportsReopen() {
+		return true;
+	}
+
+	private synchronized void writeHeader() throws IOException {
+		if (!headerWritten) {
+			out.write(HEADER);
+			headerWritten = true;
+		}
 	}
 }
