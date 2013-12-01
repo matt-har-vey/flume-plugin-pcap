@@ -1,13 +1,15 @@
 package com.cloudera.flume.handlers;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import jpcap.JpcapCaptor;
-import jpcap.NetworkInterface;
-import jpcap.packet.Packet;
+import net.sourceforge.jpcap.capture.CaptureDeviceOpenException;
+import net.sourceforge.jpcap.capture.CapturePacketException;
+import net.sourceforge.jpcap.capture.InvalidFilterException;
+import net.sourceforge.jpcap.capture.PacketCapture;
+import net.sourceforge.jpcap.capture.RawPacketListener;
+import net.sourceforge.jpcap.net.RawPacket;
+import net.sourceforge.jpcap.util.Timeval;
 
 import org.apache.flume.Context;
 import org.apache.flume.Event;
@@ -20,21 +22,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PcapSource extends AbstractSource implements Configurable,
-		Runnable, EventDrivenSource {
+		Runnable, EventDrivenSource, RawPacketListener {
   private static final Logger logger = LoggerFactory
 	      .getLogger(PcapSource.class);
 
-	private final int SNAPLEN = 65535;
+	private static final int SNAPLEN = 65535;
 
 	private static final String DEVICE = "device";
 	private static final String FILTER = "filter";
 
-	private NetworkInterface device;
-
 	private String deviceName;
 	private String filter;
 
-	private JpcapCaptor captor;
+	private PacketCapture capture;
 
 	private Thread pcapThread;
 	private boolean stopped;
@@ -45,48 +45,54 @@ public class PcapSource extends AbstractSource implements Configurable,
 		deviceName = context.getString(DEVICE);
 		filter = context.getString(FILTER);
 
-		device = getDevice(deviceName);
-		if (device == null)
-			throw new IllegalArgumentException("Did not find device " + deviceName);
+		try {
+			capture = newCapture(deviceName);
+		} catch (CaptureDeviceOpenException e) {
+			throw new IllegalArgumentException("Failed to open device", e);
+		}
+
+		if (filter != null)
+			try {
+				capture.setFilter(filter, true);
+			} catch (InvalidFilterException e) {
+				throw new IllegalArgumentException("Invalid filter", e);
+			}
 	}
 
 	@Override
 	public void run() {
 		while (!stopped) {
-			Packet packet;
-			// getPacket returns null if it timed out (should be disabled
-			// wherever possible) - then just retry until we get the next result
-			while ((packet = captor.getPacket()) == null);
-
-			byte[] packetBytes = ByteBuffer
-					.allocate(packet.data.length + packet.header.length)
-					.put(packet.header).put(packet.data).array();
-
-			final int isec = (int)packet.sec;
-			final int iusec = (int)packet.usec;
-			long timestamp = (isec << 32) | iusec;
-
-			// Strings do not feel efficient here, but for now live with it so
-			// the payload can be the packet.
-			final Map<String, String> headers = new LinkedHashMap<String, String>();
-			headers.put("timestamp", Long.toString(timestamp));
-			headers.put("timestamp_sec", Long.toString(packet.sec));
-			headers.put("timestamp_usec", Long.toString(packet.usec));
-
-			final Event event = EventBuilder.withBody(packetBytes, headers);
-			getChannelProcessor().processEvent(event);
+			try {
+				capture.capture(1);
+			} catch (CapturePacketException e) {
+				logger.error("Error capturing packet", e);
+			}
 		}
 	}
 
 	@Override
+	public void rawPacketArrived(RawPacket rawPacket) {
+		final Timeval timeval = rawPacket.getTimeval();
+		final byte[] data = rawPacket.getData();
+
+		final long sec = timeval.getSeconds();
+		final int usec = timeval.getMicroSeconds();
+		long timestamp = timeval.getDate().getTime();
+
+		// Strings do not feel efficient here, but for now live with it so
+		// the payload can be the packet.
+		final Map<String, String> headers = new LinkedHashMap<String, String>();
+		headers.put("timestamp", Long.toString(timestamp));
+		headers.put("timestamp_sec", Long.toString(sec));
+		headers.put("timestamp_usec", Integer.toString(usec));
+
+		final Event event = EventBuilder.withBody(data, headers);
+		getChannelProcessor().processEvent(event);
+	}
+
+	@Override
 	public void start() {
-		try {
-			captor = JpcapCaptor.openDevice(device, SNAPLEN, false, 0);
-			if (filter != null)
-				captor.setFilter(filter, true);
-		} catch (IOException e) {
-			logger.error("Failed to start packet capture", e);
-		}
+		capture.addRawPacketListener(this);
 
 		pcapThread = new Thread(this);
 		pcapThread.setName("pcap source capture loop");
@@ -98,9 +104,12 @@ public class PcapSource extends AbstractSource implements Configurable,
 	public void stop() {
 		if (!stopped) {
 			stopped = true;
-			pcapThread.interrupt();
+			try {
+				pcapThread.join();
+			} catch (InterruptedException e) {
+			}
 		}
-		captor.close();
+		capture.close();
 	}
 
 	@Override
@@ -109,12 +118,9 @@ public class PcapSource extends AbstractSource implements Configurable,
 				+ ", filter: " + filter + " }";
 	}
 
-	private static NetworkInterface getDevice(String deviceName) {
-		NetworkInterface[] devices = JpcapCaptor.getDeviceList();
-		for (NetworkInterface device : devices) {
-			if (deviceName.equals(device.name))
-				return device;
-		}
-		return null;
+	private static PacketCapture newCapture(String deviceName) throws CaptureDeviceOpenException {
+		final PacketCapture capture = new PacketCapture();
+		capture.open(deviceName, SNAPLEN, false, 0);
+		return capture;
 	}
 }

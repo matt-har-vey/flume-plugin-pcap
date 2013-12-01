@@ -3,20 +3,11 @@ Usage
 
 ### Note: Flume needs to run as ``root`` in order to bind to an interface.
 
-### Issue
-This is running for me with the recent changes, but after some time I get a segfault. Perhaps I can fix it by trying a different version of jpcap; perhaps your mileage will vary. I am pausing work here and changing strategy to to libpcap + Avro C into the stock Flume AvroSource.
-
-  V  [libjvm.so+0x6498a9]  jni_SetByteArrayRegion+0xa9
-  C  [libjpcap.so+0x53fc]  get_packet+0x95c
-  C  [libjpcap.so+0x430c]  Java_jpcap_JpcapCaptor_getPacket+0x123
-  j  jpcap.JpcapCaptor.getPacket()Ljpcap/packet/Packet;+0
-
-### Dependency
-Install ``libpcap`` on your system. Should your version be different from the one used for the .so here just try to symlink to the version requested, the features we use should be available in most versions.
-
 ### Libraries
-	cp jpcap/0.7/jpcap.jar $FLUME_HOME/plugins.d/pcap-source/libext
-	cp jpcap/0.7/libjpcap.so-i386 $FLUME_HOME/plugins.d/pcap-source/native/libjpcap.so # Choose your architecture (i386 or x86_64)
+The libjpcap.so checked in to this repository was built on Debian wheezy amd64. If you are on another platform, you may need to build jpcap from source. See also my fork of jpcap where I hacked up makefiles so that the build would actually work in my environment.
+
+	cp jpcap/0.01.18/jpcap.jar $FLUME_HOME/plugins.d/pcap-source/libext
+	cp jpcap/0.01.18/libjpcap.so $FLUME_HOME/plugins.d/pcap-source/native/libjpcap.so # Choose your architecture (i386 or x86_64)
 	cp target/flume-plugin-pcap-0.0.1-SNAPSHOT.jar $FLUME_HOME/plugins.d/pcap-source/lib
 
 ### Config
