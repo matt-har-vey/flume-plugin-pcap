@@ -11,6 +11,7 @@ import jpcap.packet.Packet;
 
 import org.apache.flume.Context;
 import org.apache.flume.Event;
+import org.apache.flume.EventDrivenSource;
 import org.apache.flume.conf.Configurable;
 import org.apache.flume.conf.Configurables;
 import org.apache.flume.event.EventBuilder;
@@ -19,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class PcapSource extends AbstractSource implements Configurable,
-		Runnable {
+		Runnable, EventDrivenSource {
   private static final Logger logger = LoggerFactory
 	      .getLogger(PcapSource.class);
 
@@ -27,6 +28,8 @@ public class PcapSource extends AbstractSource implements Configurable,
 
 	private static final String DEVICE = "device";
 	private static final String FILTER = "filter";
+
+	private NetworkInterface device;
 
 	private String deviceName;
 	private String filter;
@@ -41,6 +44,10 @@ public class PcapSource extends AbstractSource implements Configurable,
 		Configurables.ensureRequiredNonNull(context, DEVICE);
 		deviceName = context.getString(DEVICE);
 		filter = context.getString(FILTER);
+
+		device = getDevice(deviceName);
+		if (device == null)
+			throw new IllegalArgumentException("Did not find device " + deviceName);
 	}
 
 	@Override
@@ -49,8 +56,8 @@ public class PcapSource extends AbstractSource implements Configurable,
 			Packet packet;
 			// getPacket returns null if it timed out (should be disabled
 			// wherever possible) - then just retry until we get the next result
-			while ((packet = captor.getPacket()) == null)
-				;
+			while ((packet = captor.getPacket()) == null);
+
 			byte[] packetBytes = ByteBuffer
 					.allocate(packet.data.length + packet.header.length)
 					.put(packet.header).put(packet.data).array();
@@ -73,8 +80,6 @@ public class PcapSource extends AbstractSource implements Configurable,
 
 	@Override
 	public void start() {
-		stopped = false;
-		final NetworkInterface device = getDevice(deviceName);
 		try {
 			captor = JpcapCaptor.openDevice(device, SNAPLEN, false, 0);
 			if (filter != null)
@@ -82,12 +87,19 @@ public class PcapSource extends AbstractSource implements Configurable,
 		} catch (IOException e) {
 			logger.error("Failed to start packet capture", e);
 		}
+
+		pcapThread = new Thread(this);
+		pcapThread.setName("pcap source capture loop");
+		stopped = false;
+		pcapThread.start();
 	}
 
 	@Override
 	public void stop() {
-		stopped = true;
-		pcapThread.interrupt();
+		if (!stopped) {
+			stopped = true;
+			pcapThread.interrupt();
+		}
 		captor.close();
 	}
 
