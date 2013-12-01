@@ -24,23 +24,23 @@ The source expects two properties: device, which is required, and filter, which 
 
 ### Example
 
-> a1.sources = r1
-> a1.sinks = k1
-> a1.channels = c1
-> 
-> a1.channels.c1.type = memory
-> a1.channels.c1.capacity = 100000
-> a1.channels.c1.transactionCapacity = 1000
-> 
-> a1.sources.r1.type = com.cloudera.flume.handlers.PcapSource
-> a1.sources.r1.channels = c1
-> a1.sources.r1.device = eth0
-> 
-> a1.sinks.k1.type = hdfs
-> a1.sinks.k1.channel = c1
-> a1.sinks.k1.hdfs.path = hdfs://muscari/user/mharvey/flume-pcap/%y-%m-%d/%H
-> a1.sinks.k1.hdfs.useLocalTimeStamp = true
-> a1.sinks.k1.hdfs.rollCount = 0
-> a1.sinks.k1.hdfs.rollInterval = 0
-> a1.sinks.k1.hdfs.rollSize = 10000000
-> a1.sinks.k1.hdfs.filePrefix = pcapSequence
+  a1.sources = r1
+  a1.sinks = k1
+  a1.channels = c1
+  
+  a1.channels.c1.type = memory
+  a1.channels.c1.capacity = 100000
+  a1.channels.c1.transactionCapacity = 1000
+  
+  a1.sources.r1.type = com.cloudera.flume.handlers.PcapSource
+  a1.sources.r1.channels = c1
+  a1.sources.r1.device = eth0
+  
+  a1.sinks.k1.type = hdfs
+  a1.sinks.k1.channel = c1
+  a1.sinks.k1.hdfs.path = hdfs://muscari/user/mharvey/flume-pcap/%y-%m-%d/%H
+  a1.sinks.k1.hdfs.useLocalTimeStamp = true
+  a1.sinks.k1.hdfs.rollCount = 0
+  a1.sinks.k1.hdfs.rollInterval = 0
+  a1.sinks.k1.hdfs.rollSize = 10000000
+  a1.sinks.k1.hdfs.filePrefix = pcapSequence
